@@ -10,7 +10,7 @@ defmodule ExAws.SQS.Mixfile do
       app: :beamlab_ex_aws_sqs,
       name: "ExAws.SQS",
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -56,14 +56,13 @@ defmodule ExAws.SQS.Mixfile do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       # Only used to exercise the test suite; the actual HTTP client is
       # supplied by whichever adapter the consuming app configures for ex_aws.
       # Not pinned to a hackney major version: beamlab_ex_aws_sqs never calls hackney
       # directly, so any version ex_aws itself supports works here too.
       # https://github.com/ex-aws/ex_aws_sqs/issues/36
-      {:hackney, ">= 1.9.0", optional: true},
-      {:jason, "~> 1.4", optional: true},
+      {:hackney, ">= 1.9.0", only: :test, optional: true},
       ex_aws()
     ]
   end
@@ -81,7 +80,7 @@ defmodule ExAws.SQS.Mixfile do
   defp ex_aws() do
     case System.get_env("AWS") do
       "LOCAL" -> {:ex_aws, path: "../ex_aws"}
-      _ -> {:ex_aws, "~> 2.5"}
+      _ -> {:ex_aws, "~> 2.7"}
     end
   end
 end

@@ -292,8 +292,8 @@ defmodule ExAws.SQSTest do
     assert entry["MessageAttributes"]["b"]["BinaryValue"] == Base.encode64(bin)
     assert entry["MessageAttributes"]["b"]["DataType"] == "Binary"
 
-    # The whole data must be serializable by the configured json_codec (Jason).
-    assert {:ok, _} = Jason.encode(data)
+    # The whole data must be serializable by the configured json_codec (Elixir's built-in JSON).
+    assert is_binary(JSON.encode!(data))
   end
 
   test "#receive_message" do

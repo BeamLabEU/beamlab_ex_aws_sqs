@@ -3,8 +3,8 @@
 ## Unreleased
 
 - Fix binary message attribute handling for the JSON protocol: `BinaryValue` is now correctly
-  base64-encoded so that `Jason.encode!/1` (and the wire request) succeeds. Raw binaries are
-  still accepted from callers.
+  base64-encoded so that the configured JSON codec's `encode!/1` (and the wire request) succeeds.
+  Raw binaries are still accepted from callers.
 - `send_message_batch/2` (and related batch helpers) now consistently accept both keyword lists
   and maps for entries (previously only keyword lists worked for entries containing message
   attributes).
@@ -15,7 +15,7 @@
 - Hex docs URL updated to `hexdocs.pm/beamlab_ex_aws_sqs`.
 - Added/expanded documentation and tests for binary attributes and flexible batch entry shapes.
 - Minor README clarifications around raw JSON responses and message attributes.
-- Bumped minimum Elixir to ~> 1.15 (CI already exercised 1.15+).
+- Bumped minimum Elixir to ~> 1.18 (no longer supporting older versions). Removed direct dependency on Jason — Elixir's built-in `JSON` module is now used (available since 1.18). See `config :ex_aws, json_codec: JSON`.
 
 ## v4.0.0 - 2026-07-12
 

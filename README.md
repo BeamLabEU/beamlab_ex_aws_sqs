@@ -34,10 +34,11 @@ The library is published to Hex as `beamlab_ex_aws_sqs` because the original `ex
 ```elixir
 def deps do
   [
-    {:ex_aws, "~> 2.5"},
+    {:ex_aws, "~> 2.7"},
     {:beamlab_ex_aws_sqs, github: "BeamLabEU/beamlab_ex_aws_sqs"},
-    {:jason, "~> 1.4"},
-    {:hackney, "~> 1.20"} # or any HTTP client ex_aws supports
+    # No Jason needed — Elixir >= 1.18 has built-in JSON support.
+    # Use `config :ex_aws, json_codec: JSON` (or keep Jason if preferred).
+    {:hackney, "~> 4.0"} # or any HTTP client ex_aws supports (only for tests here)
   ]
 end
 ```
@@ -67,7 +68,7 @@ XML-to-map parsing layer standing between you and AWS:
 ```
 
 In short: response bodies are now the raw JSON payload AWS returns, decoded by your configured
-`:json_codec` (`Jason` by default) — keyed exactly as the
+`:json_codec` (Elixir's built-in `JSON` module since 1.18, or e.g. Jason) — keyed exactly as the
 [AWS API Reference](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Welcome.html)
 documents for each action, with no snake_case/atom conversion. A couple of operations use
 unusual casing straight from AWS (e.g. `list_dead_letter_source_queues/1` returns a lowercase
