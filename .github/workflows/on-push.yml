@@ -1,0 +1,38 @@
+name: on-push
+on: [push, pull_request]
+env:
+  MIX_ENV: test
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - otp: "26.2"
+            elixir: "1.15.8"
+          - otp: "27.2"
+            elixir: "1.17.3"
+          - otp: "28.0"
+            elixir: "1.19.5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+          version-type: strict
+      - name: Run elasticmq
+        run: docker run -d -p 9324:9324 softwaremill/elasticmq
+      - uses: actions/cache@v4
+        with:
+          path: deps
+          key: mix-${{ hashFiles('mix.lock') }}
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mix format --check-formatted
+        if: matrix.elixir == '1.19.5'
+      - run: mix credo --strict
+        if: matrix.elixir == '1.19.5'
+      - run: mix dialyzer
+        if: matrix.elixir == '1.19.5'
+      - run: mix test --include external:true

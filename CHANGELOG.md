@@ -1,0 +1,82 @@
+# Changelog
+
+## v4.0.0 - 2026-07-12
+
+First release of this fork ([BeamLabEU/beamlab_ex_aws_sqs](https://github.com/BeamLabEU/beamlab_ex_aws_sqs)),
+based on [ex-aws/ex_aws_sqs](https://github.com/ex-aws/ex_aws_sqs) v3.4.0.
+
+- ***BREAKING CHANGE***: All operations now use the AWS SQS **JSON protocol**
+  (`AmazonSQS.<Action>` / `application/x-amz-json-1.0`) instead of the legacy Query/XML protocol.
+  [Fixes ex-aws/ex_aws_sqs#34](https://github.com/ex-aws/ex_aws_sqs/issues/34). Successful
+  responses are now the raw JSON body AWS returns (e.g. `%{"MessageId" => ...}`) instead of a
+  hand-parsed, snake_cased map — see the README's migration guide.
+- ***BREAKING CHANGE***: Removed `ExAws.SQS.SaxyParser` and `ExAws.SQS.SweetXmlParser`, and the
+  `:saxy`/`:sweet_xml` optional dependencies along with them — there's no more XML to parse.
+- Documented `send_message_batch/2` with a runnable example.
+  [Fixes ex-aws/ex_aws_sqs#35](https://github.com/ex-aws/ex_aws_sqs/issues/35)
+- Relaxed the `:hackney` dependency constraint (it's only used by this library's own test suite)
+  so it no longer conflicts with apps on hackney 4.x.
+  [Fixes ex-aws/ex_aws_sqs#36](https://github.com/ex-aws/ex_aws_sqs/issues/36)
+- Added `start_message_move_task/2`, `cancel_message_move_task/1`, and
+  `list_message_move_tasks/2` (DLQ redrive tasks, added to the AWS API after upstream's last
+  release).
+- Added pagination options (`:max_results`, `:next_token`) to `list_queues/1` and
+  `list_dead_letter_source_queues/2`.
+- `receive_message/2`'s `:attribute_names` option now sends the modern `MessageSystemAttributeNames`
+  field instead of the deprecated `AttributeNames` field.
+- Bumped minimum Elixir version to 1.14, `ex_aws` to `~> 2.5`.
+
+---
+
+Changelog entries below this point are from the original `ex-aws/ex_aws_sqs` project.
+
+## v3.4.0
+
+- fix `sqs_message_attribute` typing
+- fix: update to Config module import
+- refactor: catch sweetxml parsing error / handle non-xml error body
+- Add dialyzer, credo, CI workflow alignment
+- Bump minimum Elixir version to 1.10
+
+## v3.3.1 - 2021-03-29
+
+- [Fix Issue #24](https://github.com/ex-aws/ex_aws_sqs/issues/24) Always parse MessageGroupId as a string
+
+## v3.3.0 - 2021-03-28
+
+- Updated min elixir version to 1.7
+- Updated ex_aws dependency from "~> 2.0" -> "~> 2.1"
+- documentation and formating updates
+
+## v3.2.1 - 2020-04-14
+
+- Updated mix deps for `:saxy` & `:sweet_xml` to be marked optional
+
+## v3.2.0 - 2020-04-13
+
+- Added optional support for [saxy](https://hex.pm/packages/saxy) XML parser
+- Saxy parser set as default parser if both `:saxy` and `:sweet_xml` loaded.
+
+## v3.1.0 - 2020-01-22
+
+- Added support for Queue Tags
+
+## v3.0.2 - 2019-11-21
+
+- Improved docs
+
+## v3.0.1 - 2019-11-21
+
+- Updated `sqs_message_attribute_name` typespec for `SQS.receive_message` to match AWS support attributes.
+
+## v3.0.0 - 2019-08-17
+
+- ***BREAKING CHANGE***: Changed queue specific functions to take the QueueUrl instead of the QueueName. Previously the name was used to build the path for the request. This is an anti-pattern according to aws docs and prevents this library from being used with alternative SQS compatible services, like localstack.
+
+## v2.0.1 - 2019-04-11
+
+- Relaxed `:ex_aws` version constraint from `v2.0.0` to `v2.0`
+
+## v2.0.0 - 2017-11-10
+
+- Major Project Split. Please see the main ExAws repository for previous changelogs.
