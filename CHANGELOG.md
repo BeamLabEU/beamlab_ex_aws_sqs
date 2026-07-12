@@ -1,26 +1,10 @@
 # Changelog
 
-## Unreleased
-
-- Fix binary message attribute handling for the JSON protocol: `BinaryValue` is now correctly
-  base64-encoded so that the configured JSON codec's `encode!/1` (and the wire request) succeeds.
-  Raw binaries are still accepted from callers.
-- `send_message_batch/2` (and related batch helpers) now consistently accept both keyword lists
-  and maps for entries (previously only keyword lists worked for entries containing message
-  attributes).
-- Updated integration tests to pass full `QueueUrl` values (not bare names) to queue-specific
-  operations such as `add_permission`.
-- Published on Hex under the name `beamlab_ex_aws_sqs` (original `ex_aws_sqs` name on Hex is occupied).
-- Internal application name is now `:beamlab_ex_aws_sqs` (to match the published package name).
-- Hex docs URL updated to `hexdocs.pm/beamlab_ex_aws_sqs`.
-- Added/expanded documentation and tests for binary attributes and flexible batch entry shapes.
-- Minor README clarifications around raw JSON responses and message attributes.
-- Bumped minimum Elixir to ~> 1.18 (no longer supporting older versions). Removed direct dependency on Jason — Elixir's built-in `JSON` module is now used (available since 1.18). See `config :ex_aws, json_codec: JSON`.
-
 ## v4.0.0 - 2026-07-12
 
 First release of this fork ([BeamLabEU/beamlab_ex_aws_sqs](https://github.com/BeamLabEU/beamlab_ex_aws_sqs)),
-based on [ex-aws/ex_aws_sqs](https://github.com/ex-aws/ex_aws_sqs) v3.4.0.
+based on [ex-aws/ex_aws_sqs](https://github.com/ex-aws/ex_aws_sqs) v3.4.0. Published to Hex as
+`beamlab_ex_aws_sqs` (the original `ex_aws_sqs` name is already taken).
 
 - ***BREAKING CHANGE***: All operations now use the AWS SQS **JSON protocol**
   (`AmazonSQS.<Action>` / `application/x-amz-json-1.0`) instead of the legacy Query/XML protocol.
@@ -41,7 +25,15 @@ based on [ex-aws/ex_aws_sqs](https://github.com/ex-aws/ex_aws_sqs) v3.4.0.
   `list_dead_letter_source_queues/2`.
 - `receive_message/2`'s `:attribute_names` option now sends the modern `MessageSystemAttributeNames`
   field instead of the deprecated `AttributeNames` field.
-- Bumped minimum Elixir version to 1.14, `ex_aws` to `~> 2.5`.
+- Fixed binary message attribute handling for the JSON protocol: `BinaryValue` is now correctly
+  base64-encoded so that the configured JSON codec's `encode!/1` (and the wire request) succeeds.
+  Callers still pass the raw binary as `:value`.
+- `send_message_batch/2` (and related batch helpers) now consistently accept both keyword lists
+  and maps for entries (previously only keyword lists worked for entries containing message
+  attributes).
+- Bumped minimum Elixir version to `~> 1.18`, `ex_aws` to `~> 2.7`. Dropped the direct dependency
+  on Jason in favor of Elixir's built-in `JSON` module (available since 1.18) — set
+  `config :ex_aws, json_codec: JSON`.
 
 ---
 
