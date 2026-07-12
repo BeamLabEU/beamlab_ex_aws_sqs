@@ -159,7 +159,7 @@ defmodule ExAws.SQSTest do
         "TestStringAttribute" => %{"DataType" => "String", "StringValue" => "testing!"},
         "TestBinaryAttribute" => %{
           "DataType" => "Binary",
-          "BinaryValue" => :zlib.gzip("testing!")
+          "BinaryValue" => Base.encode64(:zlib.gzip("testing!"))
         },
         "TestNumberAttribute" => %{"DataType" => "Number", "StringValue" => "42"},
         "TestCustomNumberAttribute" => %{"DataType" => "Number.Prime", "StringValue" => "7"}
@@ -255,6 +255,45 @@ defmodule ExAws.SQSTest do
                  [id: "test_message_2", message_body: "This is the second message body."]
                ]
              ).data
+  end
+
+  test "#send_message_batch accepts map entries (not only keyword lists)" do
+    data =
+      SQS.send_message_batch("q", [
+        %{
+          id: "m1",
+          message_body: "hi",
+          message_attributes: %{name: "k", data_type: :string, value: "v"}
+        }
+      ]).data
+
+    assert data["Entries"] == [
+             %{
+               "Id" => "m1",
+               "MessageBody" => "hi",
+               "MessageAttributes" => %{"k" => %{"DataType" => "String", "StringValue" => "v"}}
+             }
+           ]
+  end
+
+  test "#send_message_batch binary attribute produces base64 and is JSON encodable" do
+    bin = <<1, 2, 3, 4>>
+
+    data =
+      SQS.send_message_batch("q", [
+        [
+          id: "b1",
+          message_body: "x",
+          message_attributes: [%{name: "b", data_type: :binary, value: bin}]
+        ]
+      ]).data
+
+    entry = hd(data["Entries"])
+    assert entry["MessageAttributes"]["b"]["BinaryValue"] == Base.encode64(bin)
+    assert entry["MessageAttributes"]["b"]["DataType"] == "Binary"
+
+    # The whole data must be serializable by the configured json_codec (Jason).
+    assert {:ok, _} = Jason.encode(data)
   end
 
   test "#receive_message" do

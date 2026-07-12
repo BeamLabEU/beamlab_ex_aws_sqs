@@ -7,10 +7,10 @@ defmodule ExAws.SQS.Mixfile do
 
   def project do
     [
-      app: :ex_aws_sqs,
+      app: :beamlab_ex_aws_sqs,
       name: "ExAws.SQS",
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -36,9 +36,10 @@ defmodule ExAws.SQS.Mixfile do
 
   defp package do
     [
+      name: "beamlab_ex_aws_sqs",
       description:
-        "ExAws.SQS service package. Modernized fork of the archived ex-aws/ex_aws_sqs, " <>
-          "using the AWS SQS JSON protocol.",
+        "ExAws.SQS service package (published as beamlab_ex_aws_sqs on Hex). " <>
+          "Modernized fork of the archived ex-aws/ex_aws_sqs, using the AWS SQS JSON protocol.",
       maintainers: ["BeamLab EU"],
       files: ["lib", "mix.exs", "CHANGELOG.md", "README.md", "LICENSE"],
       licenses: ["MIT"],
@@ -58,7 +59,7 @@ defmodule ExAws.SQS.Mixfile do
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       # Only used to exercise the test suite; the actual HTTP client is
       # supplied by whichever adapter the consuming app configures for ex_aws.
-      # Not pinned to a hackney major version: ex_aws_sqs never calls hackney
+      # Not pinned to a hackney major version: beamlab_ex_aws_sqs never calls hackney
       # directly, so any version ex_aws itself supports works here too.
       # https://github.com/ex-aws/ex_aws_sqs/issues/36
       {:hackney, ">= 1.9.0", optional: true},

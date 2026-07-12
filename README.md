@@ -1,6 +1,7 @@
 # ExAws.SQS
 
-[![Module Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/BeamLabEU/beamlab_ex_aws_sqs)
+[![Hex.pm](https://img.shields.io/hexpm/v/beamlab_ex_aws_sqs.svg)](https://hex.pm/packages/beamlab_ex_aws_sqs)
+[![Hex Docs](https://img.shields.io/badge/hexdocs-beamlab_ex_aws_sqs-blue)](https://hexdocs.pm/beamlab_ex_aws_sqs)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 Service module for [`ex_aws`](https://github.com/ex-aws/ex_aws).
@@ -28,18 +29,26 @@ This fork:
 
 ## Installation
 
-Not (yet) published to Hex — pull it straight from GitHub:
+The library is published to Hex as `beamlab_ex_aws_sqs` because the original `ex_aws_sqs` package name is already taken on Hex.
 
 ```elixir
 def deps do
   [
     {:ex_aws, "~> 2.5"},
-    {:ex_aws_sqs, github: "BeamLabEU/beamlab_ex_aws_sqs"},
+    {:beamlab_ex_aws_sqs, github: "BeamLabEU/beamlab_ex_aws_sqs"},
     {:jason, "~> 1.4"},
     {:hackney, "~> 1.20"} # or any HTTP client ex_aws supports
   ]
 end
 ```
+
+Or once on Hex:
+
+```elixir
+{:beamlab_ex_aws_sqs, "~> 4.0"}
+```
+
+**Note:** The public API (module `ExAws.SQS`) and configuration (`config :ex_aws, :sqs, ...`) remain the same as the original. Only the dependency name in your `mix.exs` is prefixed.
 
 ## Migrating from `ex-aws/ex_aws_sqs`
 
@@ -64,6 +73,8 @@ documents for each action, with no snake_case/atom conversion. A couple of opera
 unusual casing straight from AWS (e.g. `list_dead_letter_source_queues/1` returns a lowercase
 `"queueUrls"` key) — that's an AWS quirk carried through as-is, not a bug here.
 
+Binary message attribute values (if any) will appear base64-encoded in the raw responses.
+
 You'll also want to drop `:saxy` and `:sweet_xml` from your deps if you added them for the old
 parser, and can drop any `config :ex_aws_sqs, parser: ...` config — there's no parser to select
 anymore.
@@ -87,6 +98,51 @@ ExAws.SQS.send_message_batch(queue_url, [
 
 `:id` only needs to be unique within the batch — it's how you match each entry to its result in
 `"Successful"`/`"Failed"`.
+
+Entries can be provided as keyword lists or maps.
+
+## Message attributes
+
+When sending messages with `:message_attributes`, use maps (or a list of maps) with `:name`,
+`:data_type`, and `:value`. Supported data types are `:string`, `:number`, and `:binary`.
+
+For binary attributes, pass the raw binary as `:value`. The library automatically base64-encodes
+it to satisfy the JSON protocol on the wire.
+
+On receive, any binary message attributes in the response will contain base64-encoded strings
+under `"BinaryValue"` (this is the raw form returned by AWS under the JSON protocol).
+
+Example:
+
+```elixir
+ExAws.SQS.send_message(queue_url, "body", message_attributes: [
+  %{name: "trace", data_type: :binary, value: <<1, 2, 3>>}
+])
+```
+
+## Message move tasks (DLQ redrive)
+
+These operations were added after the original library went quiet:
+
+```elixir
+# Start moving messages from a DLQ back to the source (or another) queue
+{:ok, %{"TaskHandle" => handle}} =
+  ExAws.SQS.start_message_move_task(dlq_arn) |> ExAws.request()
+
+# Or with options
+ExAws.SQS.start_message_move_task(dlq_arn,
+  destination_arn: target_arn,
+  max_number_of_messages_per_second: 100
+)
+
+# List recent tasks
+ExAws.SQS.list_message_move_tasks(dlq_arn, max_results: 5) |> ExAws.request()
+
+# Cancel if needed
+ExAws.SQS.cancel_message_move_task(handle) |> ExAws.request()
+```
+
+See the AWS docs linked from each function for details and limits.
 
 ## Copyright and License
 

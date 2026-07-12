@@ -14,13 +14,15 @@ defmodule ExAws.SQSIntegrationTest do
     [queue_url: queue_url]
   end
 
-  test "add_permission/2" do
-    assert {:ok, _} = SQS.add_permission(@queue_name, "TestAddPermission") |> ExAws.request()
+  test "add_permission/2", context do
+    # Must pass a full QueueUrl (not just the name) for queue-specific operations.
+    assert {:ok, _} =
+             SQS.add_permission(context.queue_url, "TestAddPermission") |> ExAws.request()
   end
 
-  test "add_permission/3" do
+  test "add_permission/3", context do
     assert {:ok, _} =
-             SQS.add_permission(@queue_name, "TestAddPermission2", %{
+             SQS.add_permission(context.queue_url, "TestAddPermission2", %{
                "681962096817" => :all,
                "071669896281" => [:send_message, :receive_message]
              })

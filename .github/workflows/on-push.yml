@@ -22,7 +22,17 @@ jobs:
           elixir-version: ${{matrix.elixir}}
           version-type: strict
       - name: Run elasticmq
-        run: docker run -d -p 9324:9324 softwaremill/elasticmq
+        run: |
+          docker run -d --name elasticmq -p 9324:9324 softwaremill/elasticmq
+          echo "Waiting for ElasticMQ on port 9324..."
+          for i in $(seq 1 30); do
+            if curl -s --connect-timeout 1 http://localhost:9324 >/dev/null 2>&1; then
+              echo "ElasticMQ responded"
+              break
+            fi
+            sleep 1
+          done
+          docker logs --tail 10 elasticmq || true
       - uses: actions/cache@v4
         with:
           path: deps

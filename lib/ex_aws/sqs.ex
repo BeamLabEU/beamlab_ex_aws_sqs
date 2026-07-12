@@ -422,7 +422,7 @@ defmodule ExAws.SQS do
 
     * `:delay_seconds` - The length of time, in seconds, for which to delay a specific message. Valid values: 0 to 900.
 
-    * `:message_attributes` - Each message attribute consists of a `:name`, `:data_type`, and `:value`. For more information, see [Amazon SQS Message Attributes](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-attributes.html) in the Amazon Simple Queue Service Developer Guide.
+    * `:message_attributes` - Each message attribute consists of a `:name`, `:data_type`, and `:value`. For binary attributes (`data_type: :binary`), pass the raw binary in `:value`; the library base64-encodes it for the JSON protocol. See [Amazon SQS Message Attributes](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-attributes.html).
 
     * `:message_deduplication_id` - This parameter applies only to FIFO (first-in-first-out) queues.
 
@@ -457,20 +457,23 @@ defmodule ExAws.SQS do
     request(queue_url, :send_message, data)
   end
 
-  @type sqs_batch_message :: [
-          {:id, binary}
-          | {:message_body, binary}
-          | {:delay_seconds, 0..900}
-          | {:message_attributes, sqs_message_attribute | [sqs_message_attribute, ...]}
-          | {:message_deduplication_id, binary}
-          | {:message_group_id, binary}
-        ]
+  @type sqs_batch_message ::
+          map()
+          | [
+              {:id, binary}
+              | {:message_body, binary}
+              | {:delay_seconds, 0..900}
+              | {:message_attributes, sqs_message_attribute | [sqs_message_attribute, ...]}
+              | {:message_deduplication_id, binary}
+              | {:message_group_id, binary}
+            ]
 
   @doc """
   Send up to 10 messages to a SQS Queue in a single request.
 
   Each entry needs at least an `:id` (unique within the batch, used to match up the
   `"Successful"`/`"Failed"` results in the response) and a `:message_body`.
+  Entries may be keyword lists or maps.
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessageBatch.html)
 
@@ -554,6 +557,11 @@ defmodule ExAws.SQS do
 
     * `:destination_arn` - The ARN of the queue that receives the moved messages. Defaults to the dead-letter queue's redrive policy source queue.
     * `:max_number_of_messages_per_second` - Throughput cap for the move, from 1 to 500 messages per second.
+
+  ## Examples
+
+      iex> ExAws.SQS.start_message_move_task("arn:aws:sqs:us-east-1:123:MyDLQ").data
+      %{"SourceArn" => "arn:aws:sqs:us-east-1:123:MyDLQ"}
   """
   @spec start_message_move_task(source_arn :: binary) :: JSON.t()
   @spec start_message_move_task(
@@ -603,7 +611,8 @@ defmodule ExAws.SQS do
   ## Request building
   ###
 
-  defp request(action, data) do
+  # Build an ExAws.Operation.JSON for the SQS JSON protocol.
+  defp build_op(data, action) do
     action_name = action |> Atom.to_string() |> Macro.camelize()
 
     JSON.new(:sqs, %{
@@ -615,8 +624,17 @@ defmodule ExAws.SQS do
     })
   end
 
-  defp request(nil, action, data), do: request(action, data)
-  defp request(queue_url, action, data), do: request(action, Map.put(data, "QueueUrl", queue_url))
+  # QueueUrl is required for most operations; a few (create/get queue, move tasks, list) pass nil.
+  defp build_op(data, action, nil), do: build_op(data, action)
+
+  defp build_op(data, action, queue_url),
+    do: build_op(Map.put(data, "QueueUrl", queue_url), action)
+
+  # Internal entry points. All call sites in this module use the 3-argument form
+  # (first arg is either a queue_url or nil for queue-less actions).
+  defp request(queue_url_or_nil, action, data) do
+    build_op(data, action, queue_url_or_nil)
+  end
 
   ## Helpers
   ###
@@ -676,6 +694,11 @@ defmodule ExAws.SQS do
   defp stringify(value), do: to_string(value)
 
   defp format_batch_message_entry(message) do
+    # Accept both keyword lists and maps for batch entries (other batch helpers
+    # already tolerate both via format_regular_opts).
+    message =
+      if is_map(message) and not is_struct(message), do: Map.to_list(message), else: message
+
     {attrs, opts} = Keyword.pop(message, :message_attributes, [])
 
     opts
@@ -691,7 +714,9 @@ defmodule ExAws.SQS do
   end
 
   defp message_attribute_value(%{value: value, data_type: :binary} = attr) do
-    %{"DataType" => message_data_type(attr), "BinaryValue" => value}
+    # For the JSON protocol, blob fields must be base64-encoded strings in the
+    # request payload. (Raw binaries will fail to JSON-encode.)
+    %{"DataType" => message_data_type(attr), "BinaryValue" => Base.encode64(value)}
   end
 
   defp message_attribute_value(%{value: value} = attr) do

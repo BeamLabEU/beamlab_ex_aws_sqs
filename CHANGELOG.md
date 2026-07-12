@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Fix binary message attribute handling for the JSON protocol: `BinaryValue` is now correctly
+  base64-encoded so that `Jason.encode!/1` (and the wire request) succeeds. Raw binaries are
+  still accepted from callers.
+- `send_message_batch/2` (and related batch helpers) now consistently accept both keyword lists
+  and maps for entries (previously only keyword lists worked for entries containing message
+  attributes).
+- Updated integration tests to pass full `QueueUrl` values (not bare names) to queue-specific
+  operations such as `add_permission`.
+- Published on Hex under the name `beamlab_ex_aws_sqs` (original `ex_aws_sqs` name on Hex is occupied).
+- Internal application name is now `:beamlab_ex_aws_sqs` (to match the published package name).
+- Hex docs URL updated to `hexdocs.pm/beamlab_ex_aws_sqs`.
+- Added/expanded documentation and tests for binary attributes and flexible batch entry shapes.
+- Minor README clarifications around raw JSON responses and message attributes.
+- Bumped minimum Elixir to ~> 1.15 (CI already exercised 1.15+).
+
 ## v4.0.0 - 2026-07-12
 
 First release of this fork ([BeamLabEU/beamlab_ex_aws_sqs](https://github.com/BeamLabEU/beamlab_ex_aws_sqs)),
