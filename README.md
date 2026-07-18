@@ -81,6 +81,13 @@ You'll also want to drop `:saxy` and `:sweet_xml` from your deps if you added th
 parser, and can drop any `config :ex_aws_sqs, parser: ...` config — there's no parser to select
 anymore.
 
+One behavioral note: under the JSON protocol the `QueueUrl` travels **inside the request
+body**, and the HTTP request always goes to the endpoint from your `config :ex_aws, :sqs`
+(host/region) — the host embedded in the QueueUrl is *not* used to route the request (the 3.x
+Query-protocol implementation derived the request path from it). This matches the official AWS
+SDKs: use queue URLs whose region and account match your ex_aws config, otherwise AWS rejects
+the call server-side.
+
 ## `send_message_batch/2`
 
 Each entry is a keyword list (or map) with at least `:id` and `:message_body`:
@@ -122,6 +129,21 @@ ExAws.SQS.send_message(queue_url, "body", message_attributes: [
 ])
 ```
 
+## Message system attributes (X-Ray tracing)
+
+`send_message/3` and `send_message_batch/2` entries also accept
+`:message_system_attributes` (same shape as `:message_attributes`). AWS currently supports
+only one system attribute, `:aws_trace_header`, which carries an X-Ray trace header so
+distributed tracing context survives the trip through the queue:
+
+```elixir
+ExAws.SQS.send_message(queue_url, "body",
+  message_system_attributes: [
+    %{name: :aws_trace_header, data_type: :string, value: "Root=1-67891233-abcdef012345678912345678"}
+  ]
+)
+```
+
 ## Message move tasks (DLQ redrive)
 
 These operations were added after the original library went quiet:
@@ -145,6 +167,22 @@ ExAws.SQS.cancel_message_move_task(handle) |> ExAws.request()
 ```
 
 See the AWS docs linked from each function for details and limits.
+
+## Streaming paginated lists
+
+`list_queues/1` and `list_dead_letter_source_queues/2` paginate via `NextToken`. The
+`stream_*` helpers do the token plumbing for you and emit items lazily:
+
+```elixir
+ExAws.SQS.stream_queues(queue_name_prefix: "prod-") |> Enum.to_list()
+
+ExAws.SQS.stream_dead_letter_source_queues(dlq_url) |> Enum.take(50)
+```
+
+Pages are fetched with `ExAws.request/2` and the stream raises a `RuntimeError` if a page
+request fails. An optional last argument is passed through as `ExAws.request/2` config
+overrides (e.g. `region: "eu-west-1"`). `list_message_move_tasks/2` has no stream
+counterpart — AWS returns a bounded list of recent tasks there and supports no pagination.
 
 ## Copyright and License
 

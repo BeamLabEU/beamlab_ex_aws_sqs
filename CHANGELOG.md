@@ -1,5 +1,37 @@
 # Changelog
 
+## v4.1.0 - 2026-07-17
+
+- Added `:message_system_attributes` support to `send_message/3` and
+  `send_message_batch/2` entries — currently used for the `AWSTraceHeader` X-Ray
+  trace header (accepts the atom `:aws_trace_header` or the literal string).
+- Added `stream_queues/2` and `stream_dead_letter_source_queues/3`: lazy,
+  `NextToken`-paginated streams, with an optional trailing argument passed through
+  as `ExAws.request/2` config overrides (e.g. `:region`, `:http_client`).
+  `list_message_move_tasks/2` has no stream counterpart (AWS supports no
+  pagination there).
+- `send_message_batch/2`, `delete_message_batch/2`, and
+  `change_message_visibility_batch/2` now raise `ArgumentError` for empty or
+  oversized (>10) batches instead of round-tripping an invalid request to AWS.
+- Documented that `add_permission/2`'s default empty `permissions` map is
+  rejected by AWS (at least one account/action pair is required).
+- Fixed `sqs_queue_attribute_name` typespec: added `:kms_master_key_id` and
+  `:kms_data_key_reuse_period_seconds` (both valid for `get_queue_attributes/2`).
+- Enabled doctests for `ExAws.SQS` and corrected the inspected map key order in
+  doc examples so they now run as tests.
+- Added golden tests pinning the exact AWS field name for every queue attribute
+  and message system attribute atom (documents the `SqsManagedSseEnabled`
+  model-vs-docs casing decision).
+- CI: cache `_build` (incl. dialyzer PLTs) alongside `deps`, and added
+  `mix deps.unlock --check-unused` + `mix docs --warnings-as-errors` gates.
+- Added a `mix quality` alias running the CI gates locally (compile with
+  warnings-as-errors, format check, credo strict, dialyzer, tests).
+- README: documented request-endpoint vs `QueueUrl` routing semantics.
+  CONTRIBUTING: how to run the integration tests locally.
+- Tidied `.gitignore` (package tarball pattern), dropped a non-existent
+  `test/support` entry from `elixirc_paths`, and removed the inert
+  `start_permanent` mix option; tightened a few typespecs.
+
 ## v4.0.0 - 2026-07-12
 
 First release of this fork ([BeamLabEU/beamlab_ex_aws_sqs](https://github.com/BeamLabEU/beamlab_ex_aws_sqs)),

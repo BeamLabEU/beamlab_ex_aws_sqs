@@ -1,7 +1,7 @@
 defmodule ExAws.SQS.Mixfile do
   use Mix.Project
 
-  @version "4.0.0"
+  @version "4.1.0"
   @url_docs "https://hexdocs.pm/beamlab_ex_aws_sqs"
   @url_github "https://github.com/BeamLabEU/beamlab_ex_aws_sqs"
 
@@ -12,8 +12,8 @@ defmodule ExAws.SQS.Mixfile do
       version: @version,
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
-      start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: aliases(),
       docs: docs(),
       package: package(),
       dialyzer: [
@@ -22,13 +22,32 @@ defmodule ExAws.SQS.Mixfile do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  # `mix quality` runs the same local gates as CI (integration tests excluded —
+  # those need elasticmq, see CONTRIBUTING.md).
+  defp aliases do
+    [
+      quality: [
+        "compile --warnings-as-errors",
+        "format --check-formatted",
+        "credo --strict",
+        "dialyzer",
+        "test"
+      ]
+    ]
+  end
 
   def application do
     [
       extra_applications: extra_applications(Mix.env())
     ]
+  end
+
+  # Run the quality gates in the test env, like CI does (MIX_ENV=test);
+  # `mix test` refuses to run from :dev inside an alias otherwise.
+  def cli do
+    [preferred_envs: [quality: :test]]
   end
 
   defp extra_applications(:test), do: [:logger, :hackney]

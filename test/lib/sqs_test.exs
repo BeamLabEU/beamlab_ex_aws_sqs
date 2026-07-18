@@ -2,6 +2,8 @@ defmodule ExAws.SQSTest do
   use ExUnit.Case, async: true
   alias ExAws.SQS
 
+  doctest ExAws.SQS
+
   defp headers(op), do: op.headers
   defp target(op), do: op.headers |> List.keyfind("x-amz-target", 0) |> elem(1)
 
@@ -13,7 +15,9 @@ defmodule ExAws.SQSTest do
              {"content-type", "application/x-amz-json-1.0"}
            ]
 
-    assert target(SQS.send_message_batch("q", [])) == "AmazonSQS.SendMessageBatch"
+    assert target(SQS.send_message_batch("q", [[id: "m1", message_body: "b"]])) ==
+             "AmazonSQS.SendMessageBatch"
+
     assert op.service == :sqs
     assert op.path == "/"
   end
@@ -221,6 +225,71 @@ defmodule ExAws.SQSTest do
              ).data
   end
 
+  test "#send_message with message system attributes" do
+    expected = %{
+      "QueueUrl" => "q",
+      "MessageBody" => "body",
+      "MessageSystemAttributes" => %{
+        "AWSTraceHeader" => %{"DataType" => "String", "StringValue" => "Root=1-abc"}
+      }
+    }
+
+    # Atom names go through the camelizing rules (:aws_trace_header -> "AWSTraceHeader").
+    assert expected ==
+             SQS.send_message("q", "body",
+               message_system_attributes: [
+                 %{name: :aws_trace_header, data_type: :string, value: "Root=1-abc"}
+               ]
+             ).data
+
+    # String names pass through verbatim.
+    assert expected ==
+             SQS.send_message("q", "body",
+               message_system_attributes: [
+                 %{name: "AWSTraceHeader", data_type: :string, value: "Root=1-abc"}
+               ]
+             ).data
+  end
+
+  test "#send_message combines message attributes and system attributes" do
+    data =
+      SQS.send_message("q", "body",
+        message_attributes: %{name: "k", data_type: :string, value: "v"},
+        message_system_attributes: %{name: :aws_trace_header, data_type: :string, value: "t"}
+      ).data
+
+    assert data["MessageAttributes"] == %{
+             "k" => %{"DataType" => "String", "StringValue" => "v"}
+           }
+
+    assert data["MessageSystemAttributes"] == %{
+             "AWSTraceHeader" => %{"DataType" => "String", "StringValue" => "t"}
+           }
+  end
+
+  test "#send_message_batch entries accept message system attributes" do
+    data =
+      SQS.send_message_batch("q", [
+        [
+          id: "m1",
+          message_body: "hi",
+          message_system_attributes: [
+            %{name: :aws_trace_header, data_type: :string, value: "Root=1-abc"}
+          ]
+        ]
+      ]).data
+
+    assert data["Entries"] == [
+             %{
+               "Id" => "m1",
+               "MessageBody" => "hi",
+               "MessageSystemAttributes" => %{
+                 "AWSTraceHeader" => %{"DataType" => "String", "StringValue" => "Root=1-abc"}
+               }
+             }
+           ]
+  end
+
   test "#send_message_batch" do
     expected = %{
       "QueueUrl" => "982071696186/test_queue",
@@ -391,6 +460,32 @@ defmodule ExAws.SQSTest do
              ]).data
   end
 
+  test "batch operations raise ArgumentError for empty or oversized batches" do
+    eleven = for i <- 1..11, do: %{id: "m#{i}", receipt_handle: "h#{i}"}
+
+    assert_raise ArgumentError, ~r/between 1 and 10/, fn ->
+      SQS.delete_message_batch("q", [])
+    end
+
+    assert_raise ArgumentError, ~r/between 1 and 10/, fn ->
+      SQS.delete_message_batch("q", eleven)
+    end
+
+    assert_raise ArgumentError, ~r/between 1 and 10/, fn ->
+      SQS.change_message_visibility_batch("q", [])
+    end
+
+    assert_raise ArgumentError, ~r/between 1 and 10/, fn ->
+      SQS.send_message_batch("q", [])
+    end
+
+    # Exactly 10 entries is fine.
+    assert %{"Entries" => entries} =
+             SQS.delete_message_batch("q", Enum.take(eleven, 10)).data
+
+    assert length(entries) == 10
+  end
+
   test "#change_message_visibility" do
     expected = %{
       "QueueUrl" => "982071696186/test_queue",
@@ -461,5 +556,91 @@ defmodule ExAws.SQSTest do
 
     assert %{"SourceArn" => "arn", "MaxResults" => 3} ==
              SQS.list_message_move_tasks("arn", max_results: 3).data
+  end
+
+  # Golden test: pins the exact AWS field name every attribute/option atom maps to.
+  # Casing follows botocore's service model (botocore/data/sqs/2012-11-05/service-2.json);
+  # note in particular "SqsManagedSseEnabled" — AWS's HTML docs spell it
+  # "SqsManagedSSEEnabled", but the wire model (and this library) use "Sse".
+  test "queue attribute names map to the exact AWS field names" do
+    atoms = [
+      :policy,
+      :visibility_timeout,
+      :maximum_message_size,
+      :message_retention_period,
+      :approximate_number_of_messages,
+      :approximate_number_of_messages_not_visible,
+      :created_timestamp,
+      :last_modified_timestamp,
+      :queue_arn,
+      :approximate_number_of_messages_delayed,
+      :delay_seconds,
+      :receive_message_wait_time_seconds,
+      :redrive_policy,
+      :fifo_queue,
+      :content_based_deduplication,
+      :kms_master_key_id,
+      :kms_data_key_reuse_period_seconds,
+      :deduplication_scope,
+      :fifo_throughput_limit,
+      :redrive_allow_policy,
+      :sqs_managed_sse_enabled
+    ]
+
+    expected = [
+      "Policy",
+      "VisibilityTimeout",
+      "MaximumMessageSize",
+      "MessageRetentionPeriod",
+      "ApproximateNumberOfMessages",
+      "ApproximateNumberOfMessagesNotVisible",
+      "CreatedTimestamp",
+      "LastModifiedTimestamp",
+      "QueueArn",
+      "ApproximateNumberOfMessagesDelayed",
+      "DelaySeconds",
+      "ReceiveMessageWaitTimeSeconds",
+      "RedrivePolicy",
+      "FifoQueue",
+      "ContentBasedDeduplication",
+      "KmsMasterKeyId",
+      "KmsDataKeyReusePeriodSeconds",
+      "DeduplicationScope",
+      "FifoThroughputLimit",
+      "RedriveAllowPolicy",
+      "SqsManagedSseEnabled"
+    ]
+
+    assert SQS.get_queue_attributes("q", atoms).data["AttributeNames"] == expected
+  end
+
+  test "message system attribute names map to the exact AWS field names" do
+    atoms = [
+      :sender_id,
+      :sent_timestamp,
+      :approximate_receive_count,
+      :approximate_first_receive_timestamp,
+      :sequence_number,
+      :message_deduplication_id,
+      :message_group_id,
+      :aws_trace_header,
+      :dead_letter_queue_source_arn
+    ]
+
+    expected = [
+      "SenderId",
+      "SentTimestamp",
+      "ApproximateReceiveCount",
+      "ApproximateFirstReceiveTimestamp",
+      "SequenceNumber",
+      "MessageDeduplicationId",
+      "MessageGroupId",
+      "AWSTraceHeader",
+      "DeadLetterQueueSourceArn"
+    ]
+
+    assert SQS.receive_message("q", attribute_names: atoms).data[
+             "MessageSystemAttributeNames"
+           ] == expected
   end
 end

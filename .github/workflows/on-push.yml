@@ -31,16 +31,24 @@ jobs:
             sleep 1
           done
           docker logs --tail 10 elasticmq || true
+      # Cache deps, compiled beams and the dialyzer PLTs (which live in _build).
       - uses: actions/cache@v4
         with:
-          path: deps
-          key: mix-${{ hashFiles('mix.lock') }}
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-otp-${{ matrix.otp }}-elixir-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-otp-${{ matrix.otp }}-elixir-${{ matrix.elixir }}-
       - run: mix deps.get
+      - run: mix deps.unlock --check-unused
       - run: mix compile --warnings-as-errors
       - run: mix format --check-formatted
         if: matrix.elixir == '1.19.5'
       - run: mix credo --strict
         if: matrix.elixir == '1.19.5'
       - run: mix dialyzer
+        if: matrix.elixir == '1.19.5'
+      - run: mix docs --warnings-as-errors
         if: matrix.elixir == '1.19.5'
       - run: mix test --include external:true

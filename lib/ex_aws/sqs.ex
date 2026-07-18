@@ -60,6 +60,8 @@ defmodule ExAws.SQS do
           | :redrive_allow_policy
           | :fifo_queue
           | :content_based_deduplication
+          | :kms_master_key_id
+          | :kms_data_key_reuse_period_seconds
           | :deduplication_scope
           | :fifo_throughput_limit
           | :sqs_managed_sse_enabled
@@ -94,9 +96,20 @@ defmodule ExAws.SQS do
           :value => binary | number
         }
 
+  @type sqs_message_system_attribute :: %{
+          :name => :aws_trace_header | binary,
+          :data_type => :string | :binary | :number,
+          optional(:custom_type) => binary,
+          :value => binary | number
+        }
+
   @doc """
   Adds a permission with the provided label to the Queue
   for a specific action for a specific account.
+
+  Note: AWS requires at least one account/action pair. Calling `add_permission/2`
+  (which defaults `permissions` to `%{}`) sends empty `AWSAccountIds`/`Actions`
+  lists and is rejected by AWS — pass a non-empty map.
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_AddPermission.html)
   """
@@ -135,6 +148,9 @@ defmodule ExAws.SQS do
   @doc """
   Extends the read lock timeout for a batch of 1..10 messages.
 
+  Raises `ArgumentError` if the batch is empty or larger than 10 entries
+  (AWS rejects both, so we fail before the request round-trip).
+
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ChangeMessageVisibilityBatch.html)
   """
   @type message_visibility_batch_item :: %{
@@ -148,7 +164,7 @@ defmodule ExAws.SQS do
         ) :: JSON.t()
   def change_message_visibility_batch(queue_url, messages) do
     request(queue_url, :change_message_visibility_batch, %{
-      "Entries" => Enum.map(messages, &format_regular_opts/1)
+      "Entries" => messages |> validate_batch_size!() |> Enum.map(&format_regular_opts/1)
     })
   end
 
@@ -195,8 +211,8 @@ defmodule ExAws.SQS do
 
       iex> ExAws.SQS.create_queue("my-queue", [visibility_timeout: 60], %{"team" => "platform"}).data
       %{
-        "QueueName" => "my-queue",
         "Attributes" => %{"VisibilityTimeout" => "60"},
+        "QueueName" => "my-queue",
         "tags" => %{"team" => "platform"}
       }
   """
@@ -227,6 +243,9 @@ defmodule ExAws.SQS do
   @doc """
   Deletes a list of messages from a SQS Queue in a single request
 
+  Accepts 1..10 entries; raises `ArgumentError` otherwise (AWS rejects both
+  empty and oversized batches, so we fail before the request round-trip).
+
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessageBatch.html)
   """
   @type delete_message_batch_item :: %{
@@ -239,7 +258,7 @@ defmodule ExAws.SQS do
         ) :: JSON.t()
   def delete_message_batch(queue_url, messages) do
     request(queue_url, :delete_message_batch, %{
-      "Entries" => Enum.map(messages, &format_regular_opts/1)
+      "Entries" => messages |> validate_batch_size!() |> Enum.map(&format_regular_opts/1)
     })
   end
 
@@ -346,7 +365,7 @@ defmodule ExAws.SQS do
           {:attribute_names, :all | [sqs_message_attribute_name, ...]}
           | {:message_attribute_names, :all | [String.Chars.t(), ...]}
           | {:max_number_of_messages, 1..10}
-          | {:visibility_timeout, 0..43_200}
+          | {:visibility_timeout, visibility_timeout}
           | {:wait_time_seconds, 0..20}
           | {:receive_request_attempt_id, String.t()}
         ]
@@ -409,6 +428,8 @@ defmodule ExAws.SQS do
   @type sqs_message_opts :: [
           {:delay_seconds, 0..900}
           | {:message_attributes, sqs_message_attribute | [sqs_message_attribute, ...]}
+          | {:message_system_attributes,
+             sqs_message_system_attribute | [sqs_message_system_attribute, ...]}
           | {:message_deduplication_id, binary}
           | {:message_group_id, binary}
         ]
@@ -424,6 +445,11 @@ defmodule ExAws.SQS do
 
     * `:message_attributes` - Each message attribute consists of a `:name`, `:data_type`, and `:value`. For binary attributes (`data_type: :binary`), pass the raw binary in `:value`; the library base64-encodes it for the JSON protocol. See [Amazon SQS Message Attributes](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-attributes.html).
 
+    * `:message_system_attributes` - Same shape as `:message_attributes`, but for AWS-controlled
+      system attributes. Currently the only supported one is `:aws_trace_header` (sent as
+      `AWSTraceHeader`): an X-Ray trace header string (`data_type: :string`) that propagates
+      tracing context through the queue. Its size doesn't count towards the total message size.
+
     * `:message_deduplication_id` - This parameter applies only to FIFO (first-in-first-out) queues.
 
     * `:message_group_id` - This parameter applies only to FIFO (first-in-first-out) queues.
@@ -431,15 +457,30 @@ defmodule ExAws.SQS do
   ## Examples
 
       iex> ExAws.SQS.send_message("https://queue.url", "Hello!").data
-      %{"QueueUrl" => "https://queue.url", "MessageBody" => "Hello!"}
+      %{"MessageBody" => "Hello!", "QueueUrl" => "https://queue.url"}
 
       iex> ExAws.SQS.send_message("https://queue.url", "Hello!",
       ...>   message_attributes: [%{name: "priority", data_type: :number, value: 1}]
       ...> ).data
       %{
-        "QueueUrl" => "https://queue.url",
+        "MessageAttributes" => %{
+          "priority" => %{"DataType" => "Number", "StringValue" => "1"}
+        },
         "MessageBody" => "Hello!",
-        "MessageAttributes" => %{"priority" => %{"DataType" => "Number", "StringValue" => "1"}}
+        "QueueUrl" => "https://queue.url"
+      }
+
+      iex> ExAws.SQS.send_message("https://queue.url", "Hello!",
+      ...>   message_system_attributes: [
+      ...>     %{name: :aws_trace_header, data_type: :string, value: "Root=1-abc"}
+      ...>   ]
+      ...> ).data
+      %{
+        "MessageBody" => "Hello!",
+        "MessageSystemAttributes" => %{
+          "AWSTraceHeader" => %{"DataType" => "String", "StringValue" => "Root=1-abc"}
+        },
+        "QueueUrl" => "https://queue.url"
       }
   """
   @spec send_message(queue_url :: binary, message_body :: binary) :: JSON.t()
@@ -447,11 +488,16 @@ defmodule ExAws.SQS do
           JSON.t()
   def send_message(queue_url, message, opts \\ []) do
     {attrs, opts} = Keyword.pop(opts, :message_attributes, [])
+    {system_attrs, opts} = Keyword.pop(opts, :message_system_attributes, [])
 
     data =
       opts
       |> format_regular_opts()
       |> maybe_put("MessageAttributes", build_message_attribute_map(attrs))
+      |> maybe_put(
+        "MessageSystemAttributes",
+        build_message_attribute_map(system_attrs, &format_system_attribute_name/1)
+      )
       |> Map.put("MessageBody", message)
 
     request(queue_url, :send_message, data)
@@ -464,16 +510,23 @@ defmodule ExAws.SQS do
               | {:message_body, binary}
               | {:delay_seconds, 0..900}
               | {:message_attributes, sqs_message_attribute | [sqs_message_attribute, ...]}
+              | {:message_system_attributes,
+                 sqs_message_system_attribute | [sqs_message_system_attribute, ...]}
               | {:message_deduplication_id, binary}
               | {:message_group_id, binary}
             ]
 
   @doc """
-  Send up to 10 messages to a SQS Queue in a single request.
+  Send 1..10 messages to a SQS Queue in a single request.
+
+  Raises `ArgumentError` if the batch is empty or larger than 10 entries
+  (AWS rejects both, so we fail before the request round-trip).
 
   Each entry needs at least an `:id` (unique within the batch, used to match up the
   `"Successful"`/`"Failed"` results in the response) and a `:message_body`.
-  Entries may be keyword lists or maps.
+  Entries may be keyword lists or maps, and otherwise accept the same options as
+  `send_message/3` (`:delay_seconds`, `:message_attributes`, `:message_system_attributes`,
+  `:message_deduplication_id`, `:message_group_id`).
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessageBatch.html)
 
@@ -484,11 +537,11 @@ defmodule ExAws.SQS do
       ...>   [id: "a2", message_body: "payload2", delay_seconds: 10]
       ...> ]).data
       %{
-        "QueueUrl" => "https://queue.url",
         "Entries" => [
           %{"Id" => "a1", "MessageBody" => "payload1"},
-          %{"Id" => "a2", "MessageBody" => "payload2", "DelaySeconds" => 10}
-        ]
+          %{"DelaySeconds" => 10, "Id" => "a2", "MessageBody" => "payload2"}
+        ],
+        "QueueUrl" => "https://queue.url"
       }
 
   A successful call returns a body shaped like:
@@ -501,7 +554,7 @@ defmodule ExAws.SQS do
   @spec send_message_batch(queue_url :: binary, messages :: [sqs_batch_message, ...]) :: JSON.t()
   def send_message_batch(queue_url, messages) do
     request(queue_url, :send_message_batch, %{
-      "Entries" => Enum.map(messages, &format_batch_message_entry/1)
+      "Entries" => messages |> validate_batch_size!() |> Enum.map(&format_batch_message_entry/1)
     })
   end
 
@@ -542,7 +595,7 @@ defmodule ExAws.SQS do
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_UntagQueue.html)
   """
-  @spec untag_queue(queue_url :: binary, tag_keys :: list) :: JSON.t()
+  @spec untag_queue(queue_url :: binary, tag_keys :: [String.Chars.t(), ...]) :: JSON.t()
   def untag_queue(queue_url, tag_keys) do
     request(queue_url, :untag_queue, %{"TagKeys" => Enum.map(tag_keys, &to_string/1)})
   end
@@ -608,6 +661,80 @@ defmodule ExAws.SQS do
     request(nil, :list_message_move_tasks, data)
   end
 
+  ## Streaming
+  ###
+
+  @doc """
+  Returns a lazy stream of queue URLs, transparently fetching additional pages with
+  `list_queues/1` (`NextToken`) as the stream is consumed.
+
+  Takes the same options as `list_queues/1` (`:queue_name_prefix`, `:max_results`), plus an
+  optional list of `ExAws.request/2` config overrides (e.g. a different `:region`, or an
+  alternative `:http_client`).
+
+  Each page is fetched with `ExAws.request/2`; the stream raises a `RuntimeError` if a page
+  request fails.
+
+      ExAws.SQS.stream_queues(queue_name_prefix: "prod-") |> Enum.to_list()
+      # => ["https://sqs.us-east-1.amazonaws.com/123/prod-a", ...]
+  """
+  @spec stream_queues(
+          opts :: [queue_name_prefix: binary, max_results: pos_integer],
+          request_opts :: keyword
+        ) :: Enumerable.t(binary)
+  def stream_queues(opts \\ [], request_opts \\ []) do
+    paginate(&list_queues/1, opts, request_opts, "QueueUrls")
+  end
+
+  @doc """
+  Returns a lazy stream of dead-letter source queue URLs for `queue_url`, transparently
+  fetching additional pages with `list_dead_letter_source_queues/2` (`NextToken`) as the
+  stream is consumed.
+
+  Like `stream_queues/2`: takes `:max_results` plus optional `ExAws.request/2` config
+  overrides, and raises a `RuntimeError` if a page request fails.
+
+  (`list_message_move_tasks/2` has no stream counterpart — the AWS operation returns a
+  bounded list of recent tasks and supports no `NextToken` pagination.)
+  """
+  @spec stream_dead_letter_source_queues(
+          queue_url :: binary,
+          opts :: [max_results: pos_integer],
+          request_opts :: keyword
+        ) :: Enumerable.t(binary)
+  def stream_dead_letter_source_queues(queue_url, opts \\ [], request_opts \\ []) do
+    paginate(&list_dead_letter_source_queues(queue_url, &1), opts, request_opts, "queueUrls")
+  end
+
+  # Lazily pages through a list operation. `fun` builds an ExAws.Operation from opts with
+  # :next_token injected per page; `items_key` is the response field holding the page items
+  # (note the AWS quirk: ListQueues returns "QueueUrls" while ListDeadLetterSourceQueues
+  # returns lowercase "queueUrls").
+  defp paginate(fun, opts, request_opts, items_key) do
+    Stream.resource(
+      fn -> :first_page end,
+      fn
+        :done ->
+          {:halt, :done}
+
+        token ->
+          opts = if token == :first_page, do: opts, else: Keyword.put(opts, :next_token, token)
+
+          case fun.(opts) |> ExAws.request(request_opts) do
+            {:ok, response} ->
+              next_token = Map.get(response, "NextToken")
+
+              {Map.get(response, items_key, []),
+               if(next_token in [nil, ""], do: :done, else: next_token)}
+
+            {:error, reason} ->
+              raise "SQS pagination failed while fetching #{items_key}: #{inspect(reason)}"
+          end
+      end,
+      fn _acc -> :ok end
+    )
+  end
+
   ## Request building
   ###
 
@@ -643,6 +770,18 @@ defmodule ExAws.SQS do
   defp maybe_put(map, _key, []), do: map
   defp maybe_put(map, _key, v) when is_map(v) and map_size(v) == 0, do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # AWS bounds every batch operation to 1..10 entries; fail locally instead of
+  # round-tripping an invalid request.
+  defp validate_batch_size!(messages) when is_list(messages) do
+    size = length(messages)
+
+    if size < 1 or size > 10 do
+      raise ArgumentError, "expected between 1 and 10 batch entries, got: #{size}"
+    end
+
+    messages
+  end
 
   defp expand_permissions(%{} = permissions) do
     permissions
@@ -700,18 +839,31 @@ defmodule ExAws.SQS do
       if is_map(message) and not is_struct(message), do: Map.to_list(message), else: message
 
     {attrs, opts} = Keyword.pop(message, :message_attributes, [])
+    {system_attrs, opts} = Keyword.pop(opts, :message_system_attributes, [])
 
     opts
     |> format_regular_opts()
     |> maybe_put("MessageAttributes", build_message_attribute_map(attrs))
+    |> maybe_put(
+      "MessageSystemAttributes",
+      build_message_attribute_map(system_attrs, &format_system_attribute_name/1)
+    )
   end
 
-  defp build_message_attribute_map(%{} = attr), do: build_message_attribute_map([attr])
+  defp build_message_attribute_map(attr, name_fun \\ &to_string/1)
 
-  defp build_message_attribute_map(attrs) do
+  defp build_message_attribute_map(%{} = attr, name_fun),
+    do: build_message_attribute_map([attr], name_fun)
+
+  defp build_message_attribute_map(attrs, name_fun) do
     attrs
-    |> Enum.into(%{}, fn attr -> {to_string(attr.name), message_attribute_value(attr)} end)
+    |> Enum.into(%{}, fn attr -> {name_fun.(attr.name), message_attribute_value(attr)} end)
   end
+
+  # Message system attribute names come from a small AWS-controlled enum (currently only
+  # AWSTraceHeader), so atoms go through the camelizing rules; strings pass through verbatim.
+  defp format_system_attribute_name(name) when is_atom(name), do: format_param_key(name)
+  defp format_system_attribute_name(name) when is_binary(name), do: name
 
   defp message_attribute_value(%{value: value, data_type: :binary} = attr) do
     # For the JSON protocol, blob fields must be base64-encoded strings in the
