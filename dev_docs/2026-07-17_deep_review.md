@@ -7,7 +7,8 @@ cross-checked every wire detail against the authoritative AWS service model
 
 > **Status update (same day):** Batch 1 (F1, F2, F4–F6), Batch 2 (F7–F10) and
 > Batch 3 (F11–F14) are **done** — see "Progress log" at the bottom. All 14
-> findings are resolved except F3 (git tag — needs repo push access).
+> findings are resolved, including F3: **v4.1.0 published to Hex**, tags
+> `v4.0.0` (retroactive) and `v4.1.0` created and pushed.
 
 ## Verdict
 
@@ -57,9 +58,9 @@ Notably, `sqs_managed_sse_enabled` camelizes to `SqsManagedSseEnabled`, which
   Fix = reorder expected output in the examples + add `doctest ExAws.SQS` to
   `test/lib/sqs_test.exs` → free test coverage and docs that can't drift.
 
-- **F3 — No git tag for v4.0.0, but `mix.exs` sets `source_ref: "v4.0.0"`.**
-  Every "source" link on hexdocs.pm 404s on GitHub until the tag exists
-  (`git tag -l` is empty). Part of release process: `git tag v4.0.0 && git push --tags`.
+- **F3 — No git tag for v4.0.0, but `mix.exs` sets `source_ref: "v4.0.0"`. ✅ DONE**
+  Resolved at the v4.1.0 release: `v4.0.0` tagged retroactively on `ca7a8ba`
+  (the actual publish commit) and `v4.1.0` on the release commit; both pushed.
 
 - **F4 — Stale `.gitignore` entry.** `ex_aws_sqs-*.tar` should be
   `beamlab_ex_aws_sqs-*.tar` (hex tarballs are named after `:app`).
@@ -146,11 +147,9 @@ Notably, `sqs_managed_sse_enabled` camelizes to `SqsManagedSseEnabled`, which
 - ~~**Batch 2 (P2 features):** F7 (MessageSystemAttributes), F8 (pagination
   streams), F9/F10 doc lines.~~ ✅ DONE
 - ~~**Batch 3 (P3):** F11–F14.~~ ✅ DONE
-- **Release chore (only remaining item):** create git tag `v4.0.0` (F3) —
-  needs repo push access. The `Unreleased` CHANGELOG section is ready to
-  become `v4.1.0` (new features, backwards-compatible; note the one small
-  behavior change: empty/oversized batches now raise `ArgumentError` locally
-  instead of failing server-side) whenever you want to publish.
+- ~~**Release chore:** git tags + publish.~~ ✅ DONE — **v4.1.0 is live on
+  Hex** (package + docs), `v4.0.0`/`v4.1.0` tags pushed. Nothing left from
+  this review.
 
 ## Progress log
 
@@ -174,6 +173,12 @@ Notably, `sqs_managed_sse_enabled` camelizes to `SqsManagedSseEnabled`, which
   the alias (CI runs everything in `MIX_ENV=test` too). Full run: green, no
   warnings to fix. First run built the test-env PLT (~2 min, now cached in
   `_build/test`).
+- **2026-07-17 release v4.1.0:** version bumped, changelog dated, `mix
+  quality` green, `hex.publish --dry-run` verified (package contains only
+  lib/mix.exs/CHANGELOG/README/LICENSE). Published to Hex as
+  `beamlab_ex_aws_sqs` 4.1.0 (package + docs). Tagged `v4.0.0` retroactively
+  on `ca7a8ba` and `v4.1.0` on the release commit; pushed `main` + tags.
+  This closes F3 and the whole review.
 
 *Environment note: integration tests (`:external`) were not run locally — this
 container has no docker daemon for elasticmq. CI covers them.*
