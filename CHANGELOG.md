@@ -1,5 +1,14 @@
 # Changelog
 
+## v5.0.0 - 2026-07-19
+
+- ***BREAKING CHANGE***: The compiled OTP application is now named `:ex_aws_sqs` again (it was
+  `:beamlab_ex_aws_sqs` in v4.x). The Hex package name is unchanged (`beamlab_ex_aws_sqs`), but
+  consumers must now depend on it with `{:ex_aws_sqs, "~> 5.0", hex: :beamlab_ex_aws_sqs}` instead
+  of `{:beamlab_ex_aws_sqs, "~> 4.0"}`. This makes the package a proper drop-in for anything that
+  declares a dependency on `:ex_aws_sqs` directly (e.g. `broadway_sqs`), which was impossible under
+  the v4.x app name. [Fixes #1](https://github.com/BeamLabEU/beamlab_ex_aws_sqs/issues/1)
+
 ## v4.1.0 - 2026-07-17
 
 - Added `:message_system_attributes` support to `send_message/3` and

@@ -1,13 +1,13 @@
 defmodule ExAws.SQS.Mixfile do
   use Mix.Project
 
-  @version "4.1.0"
+  @version "5.0.0"
   @url_docs "https://hexdocs.pm/beamlab_ex_aws_sqs"
   @url_github "https://github.com/BeamLabEU/beamlab_ex_aws_sqs"
 
   def project do
     [
-      app: :beamlab_ex_aws_sqs,
+      app: :ex_aws_sqs,
       name: "ExAws.SQS",
       version: @version,
       elixir: "~> 1.18",

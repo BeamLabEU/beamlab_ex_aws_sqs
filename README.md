@@ -30,13 +30,16 @@ This fork:
 ## Installation
 
 Published to Hex as `beamlab_ex_aws_sqs` because the original `ex_aws_sqs` package name is already
-taken: https://hex.pm/packages/beamlab_ex_aws_sqs
+taken: https://hex.pm/packages/beamlab_ex_aws_sqs. The compiled OTP application is still named
+`:ex_aws_sqs`, so use Mix's `:hex` dependency option to fetch this package under its normal name —
+this keeps the app a drop-in replacement for packages (like `broadway_sqs`) that declare a
+dependency on `:ex_aws_sqs` directly:
 
 ```elixir
 def deps do
   [
     {:ex_aws, "~> 2.7"},
-    {:beamlab_ex_aws_sqs, "~> 4.0"},
+    {:ex_aws_sqs, "~> 5.0", hex: :beamlab_ex_aws_sqs},
     # No Jason needed — Elixir >= 1.18 has built-in JSON support.
     # Use `config :ex_aws, json_codec: JSON` (or keep Jason if preferred).
     {:hackney, "~> 4.0"} # or any HTTP client ex_aws supports (only for tests here)
@@ -47,10 +50,12 @@ end
 Or track `main` directly:
 
 ```elixir
-{:beamlab_ex_aws_sqs, github: "BeamLabEU/beamlab_ex_aws_sqs"}
+{:ex_aws_sqs, github: "BeamLabEU/beamlab_ex_aws_sqs"}
 ```
 
-**Note:** The public API (module `ExAws.SQS`) and configuration (`config :ex_aws, :sqs, ...`) remain the same as the original. Only the dependency name in your `mix.exs` is prefixed.
+**Note:** The public API (module `ExAws.SQS`) and configuration (`config :ex_aws, :sqs, ...`) remain
+the same as the original. Only the Hex package name differs from the app name — see
+[#1](https://github.com/BeamLabEU/beamlab_ex_aws_sqs/issues/1) for background.
 
 ## Migrating from `ex-aws/ex_aws_sqs`
 
