@@ -1,7 +1,7 @@
 defmodule ExAws.SQS.Mixfile do
   use Mix.Project
 
-  @version "5.0.0"
+  @version "5.0.1"
   @url_docs "https://hexdocs.pm/beamlab_ex_aws_sqs"
   @url_github "https://github.com/BeamLabEU/beamlab_ex_aws_sqs"
 

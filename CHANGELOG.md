@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1 - 2026-08-11
+
+### Changed
+
+- Dependency updates (`hackney` 4.7.3 and the transitive `quic` 1.8.0 /
+  `webtransport` 0.4.4 it carries). No source changes in this package.
+
 ## v5.0.0 - 2026-07-19
 
 - ***BREAKING CHANGE***: The compiled OTP application is now named `:ex_aws_sqs` again (it was
