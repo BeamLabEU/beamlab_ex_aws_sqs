@@ -1,7 +1,7 @@
 defmodule ExAws.SQS.Mixfile do
   use Mix.Project
 
-  @version "5.0.1"
+  @version "5.0.2"
   @url_docs "https://hexdocs.pm/beamlab_ex_aws_sqs"
   @url_github "https://github.com/BeamLabEU/beamlab_ex_aws_sqs"
 
@@ -24,7 +24,7 @@ defmodule ExAws.SQS.Mixfile do
 
   defp elixirc_paths(_), do: ["lib"]
 
-  # `mix quality` runs the same local gates as CI (integration tests excluded —
+  # `mix quality` runs the release gates locally (integration tests excluded —
   # those need elasticmq, see CONTRIBUTING.md).
   defp aliases do
     [
@@ -44,7 +44,7 @@ defmodule ExAws.SQS.Mixfile do
     ]
   end
 
-  # Run the quality gates in the test env, like CI does (MIX_ENV=test);
+  # Run the quality gates in the test env (MIX_ENV=test);
   # `mix test` refuses to run from :dev inside an alias otherwise.
   def cli do
     [preferred_envs: [quality: :test]]
@@ -76,12 +76,12 @@ defmodule ExAws.SQS.Mixfile do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false},
-      # Only used to exercise the test suite; the actual HTTP client is
-      # supplied by whichever adapter the consuming app configures for ex_aws.
-      # Not pinned to a hackney major version: beamlab_ex_aws_sqs never calls hackney
-      # directly, so any version ex_aws itself supports works here too.
+      # Test-only: `only: :test` keeps hackney out of the published package's
+      # requirements entirely, so it can never constrain a consuming app's hackney
+      # version. Requests go through whichever HTTP client the app configures for
+      # ex_aws, which declares its own (optional) hackney/req constraints.
       # https://github.com/ex-aws/ex_aws_sqs/issues/36
-      {:hackney, ">= 1.9.0", only: :test, optional: true},
+      {:hackney, "~> 4.0", only: :test},
       ex_aws()
     ]
   end

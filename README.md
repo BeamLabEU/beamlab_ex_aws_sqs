@@ -17,15 +17,15 @@ This fork:
   `:sweet_xml` dependency entirely — one less thing to configure or upgrade.
 * Documents `send_message_batch/2` with a runnable example
   ([ex-aws/ex_aws_sqs#35](https://github.com/ex-aws/ex_aws_sqs/issues/35)).
-* Relaxes the `:hackney` version constraint so it no longer collides with apps that have moved to
+* Declares no `:hackney` dependency at all, so it never collides with apps that have moved to
   hackney 4.x ([ex-aws/ex_aws_sqs#36](https://github.com/ex-aws/ex_aws_sqs/issues/36)). `hackney`
-  is only used to run this library's own test suite — request execution always goes through
-  whatever HTTP adapter your app configures for `ex_aws`.
+  is a test-only dependency here — request execution always goes through whatever HTTP client
+  your app configures for `ex_aws`, and `ex_aws` owns that version constraint.
 * Adds the message-move-task operations (`start_message_move_task/2`,
   `cancel_message_move_task/1`, `list_message_move_tasks/2`) and `ListQueues`/
   `ListDeadLetterSourceQueues` pagination options, none of which existed yet when upstream went
   quiet.
-* Refreshes `mix.exs`/CI to current Elixir/OTP versions.
+* Refreshes `mix.exs` to current Elixir/OTP versions.
 
 ## Installation
 
@@ -42,7 +42,8 @@ def deps do
     {:ex_aws_sqs, "~> 5.0", hex: :beamlab_ex_aws_sqs},
     # No Jason needed — Elixir >= 1.18 has built-in JSON support.
     # Use `config :ex_aws, json_codec: JSON` (or keep Jason if preferred).
-    {:hackney, "~> 4.0"} # or any HTTP client ex_aws supports (only for tests here)
+    # An HTTP client for ex_aws (it declares these as optional): hackney or req.
+    {:hackney, "~> 4.0"}
   ]
 end
 ```

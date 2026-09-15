@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.0.2 - 2026-09-15
+
+### Changed
+
+- `hackney` is now declared as a plain `only: :test` dependency (`~> 4.0`), dropping the redundant
+  `optional: true` and the misleading `>= 1.9.0` range. The published package's requirements are
+  unchanged — they never included `hackney`; `ex_aws` owns the HTTP client constraint.
+  ([ex-aws/ex_aws_sqs#36](https://github.com/ex-aws/ex_aws_sqs/issues/36))
+- README/CONTRIBUTING: clarified the HTTP client wording and removed references to the deleted CI
+  workflow (use `mix quality` locally).
+- Dev/test dependency updates (`dialyxir` 1.4.8, `ex_doc` 0.40.4, `hackney` 4.7.4).
+
 ## 5.0.1 - 2026-08-11
 
 ### Changed

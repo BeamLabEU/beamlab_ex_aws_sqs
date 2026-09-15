@@ -21,4 +21,7 @@ The integration tests (`test/lib/sqs/integration_test.exs`, tagged `:external`) 
     docker run -d --name elasticmq -p 9324:9324 softwaremill/elasticmq
     mix test --include external
 
-That mirrors what CI does on every push (see `.github/workflows/on-push.yml`).
+Before opening a PR, run the full local gate (compile with warnings-as-errors, format check,
+credo strict, dialyzer, unit tests):
+
+    mix quality
