@@ -672,8 +672,8 @@ defmodule ExAws.SQS do
   optional list of `ExAws.request/2` config overrides (e.g. a different `:region`, or an
   alternative `:http_client`).
 
-  Each page is fetched with `ExAws.request/2`; the stream raises a `RuntimeError` if a page
-  request fails.
+  Each page is fetched with `ExAws.request/2`; the stream raises `ExAws.SQS.PaginationError`
+  (carrying the original error in `:reason`) if a page request fails.
 
       ExAws.SQS.stream_queues(queue_name_prefix: "prod-") |> Enum.to_list()
       # => ["https://sqs.us-east-1.amazonaws.com/123/prod-a", ...]
@@ -692,7 +692,7 @@ defmodule ExAws.SQS do
   stream is consumed.
 
   Like `stream_queues/2`: takes `:max_results` plus optional `ExAws.request/2` config
-  overrides, and raises a `RuntimeError` if a page request fails.
+  overrides, and raises `ExAws.SQS.PaginationError` if a page request fails.
 
   (`list_message_move_tasks/2` has no stream counterpart — the AWS operation returns a
   bounded list of recent tasks and supports no `NextToken` pagination.)
@@ -728,7 +728,7 @@ defmodule ExAws.SQS do
                if(next_token in [nil, ""], do: :done, else: next_token)}
 
             {:error, reason} ->
-              raise "SQS pagination failed while fetching #{items_key}: #{inspect(reason)}"
+              raise ExAws.SQS.PaginationError, items_key: items_key, reason: reason
           end
       end,
       fn _acc -> :ok end
@@ -781,6 +781,10 @@ defmodule ExAws.SQS do
     end
 
     messages
+  end
+
+  defp validate_batch_size!(other) do
+    raise ArgumentError, "expected a list of 1 to 10 batch entries, got: #{inspect(other)}"
   end
 
   defp expand_permissions(%{} = permissions) do

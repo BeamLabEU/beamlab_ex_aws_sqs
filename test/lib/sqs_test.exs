@@ -479,6 +479,10 @@ defmodule ExAws.SQSTest do
       SQS.send_message_batch("q", [])
     end
 
+    assert_raise ArgumentError, ~r/expected a list/, fn ->
+      SQS.send_message_batch("q", %{id: "a", message_body: "b"})
+    end
+
     # Exactly 10 entries is fine.
     assert %{"Entries" => entries} =
              SQS.delete_message_batch("q", Enum.take(eleven, 10)).data

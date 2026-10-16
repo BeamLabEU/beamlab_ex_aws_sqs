@@ -82,7 +82,7 @@ defmodule ExAws.SQS.Mixfile do
       # ex_aws, which declares its own (optional) hackney/req constraints.
       # https://github.com/ex-aws/ex_aws_sqs/issues/36
       {:hackney, "~> 4.0", only: :test},
-      ex_aws()
+      {:ex_aws, "~> 2.7"}
     ]
   end
 
@@ -94,12 +94,5 @@ defmodule ExAws.SQS.Mixfile do
       source_ref: "v#{@version}",
       formatters: ["html"]
     ]
-  end
-
-  defp ex_aws() do
-    case System.get_env("AWS") do
-      "LOCAL" -> {:ex_aws, path: "../ex_aws"}
-      _ -> {:ex_aws, "~> 2.7"}
-    end
   end
 end

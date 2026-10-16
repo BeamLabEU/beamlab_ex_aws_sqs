@@ -74,9 +74,19 @@ defmodule ExAws.SQSStreamTest do
 
   test "stream_queues/2 passes list options through to the request" do
     # "boom" makes the stub answer with an AWS-shaped 400 error.
-    assert_raise RuntimeError, ~r/SQS pagination failed/, fn ->
+    assert_raise SQS.PaginationError, ~r/SQS pagination failed/, fn ->
       SQS.stream_queues([queue_name_prefix: "boom"], @stub) |> Enum.to_list()
     end
+  end
+
+  test "a failed page raises PaginationError carrying the original error" do
+    error =
+      assert_raise SQS.PaginationError, fn ->
+        SQS.stream_queues([queue_name_prefix: "boom"], @stub) |> Enum.to_list()
+      end
+
+    assert %SQS.PaginationError{items_key: "QueueUrls", reason: {"InvalidParameterValue", "boom"}} =
+             error
   end
 
   test "stream_dead_letter_source_queues/3 reads the lowercase queueUrls field" do

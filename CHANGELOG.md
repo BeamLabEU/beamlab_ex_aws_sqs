@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Stream helpers (`stream_queues/2`, `stream_dead_letter_source_queues/3`) now raise
+  `ExAws.SQS.PaginationError` when a page fails, with the original `ExAws.request/2` error in
+  `:reason`. The message text is unchanged, but code that rescued `RuntimeError` around these
+  streams must rescue the new exception instead.
+- The batch operations raise `ArgumentError` (instead of `FunctionClauseError`) when given
+  something other than a list of entries.
+- Removed the `AWS=LOCAL` path-dependency switch from `mix.exs`; `ex_aws` is always the Hex
+  package. Dev/test: `hackney` 4.8.5.
+
 ## 5.0.2 - 2026-09-15
 
 ### Changed
