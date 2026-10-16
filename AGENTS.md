@@ -44,5 +44,5 @@ There is no CI workflow (removed deliberately) — `mix quality` is the gate.
 
 ## Releasing
 
-Tags use a `v` prefix (`v5.0.2`). Follow the `hex-publish` skill: bump `@version` in `mix.exs`,
+Tags use a `v` prefix (`v5.1.0`). Follow the `hex-publish` skill: bump `@version` in `mix.exs`,
 CHANGELOG entry, `mix quality`, commit, push and verify, `mix hex.publish --yes`, then tag.
