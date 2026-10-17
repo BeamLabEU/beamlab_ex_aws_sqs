@@ -5,6 +5,19 @@ defmodule ExAws.SQS.Mixfile do
   @url_docs "https://hexdocs.pm/beamlab_ex_aws_sqs"
   @url_github "https://github.com/BeamLabEU/beamlab_ex_aws_sqs"
 
+  # Function groups for the generated docs (sidebar sections).
+  @queue_functions ~w(create_queue delete_queue get_queue_url get_queue_attributes
+                      set_queue_attributes list_queues list_dead_letter_source_queues
+                      purge_queue)a
+  @message_functions ~w(send_message send_message_batch receive_message delete_message
+                        delete_message_batch change_message_visibility
+                        change_message_visibility_batch)a
+  @access_functions ~w(add_permission remove_permission tag_queue untag_queue
+                       list_queue_tags)a
+  @move_task_functions ~w(start_message_move_task cancel_message_move_task
+                          list_message_move_tasks)a
+  @stream_functions ~w(stream_queues stream_dead_letter_source_queues)a
+
   def project do
     [
       app: :ex_aws_sqs,
@@ -88,11 +101,30 @@ defmodule ExAws.SQS.Mixfile do
 
   defp docs do
     [
-      extras: ["CHANGELOG.md", "README.md", "LICENSE"],
       main: "readme",
+      # The OTP app (:ex_aws_sqs) differs from the Hex package name, so pin the canonical URL
+      # to the real package instead of the one ExDoc would derive from the app name.
+      canonical: @url_docs,
       source_url: @url_github,
       source_ref: "v#{@version}",
-      formatters: ["html"]
+      formatters: ["html"],
+      # Two modules; the README is the landing page, so the generated index is just noise.
+      api_reference: false,
+      extras: [
+        "README.md": [title: "Overview"],
+        "CHANGELOG.md": [title: "Changelog"],
+        LICENSE: [title: "License"]
+      ],
+      groups_for_modules: [
+        Exceptions: [ExAws.SQS.PaginationError]
+      ],
+      groups_for_docs: [
+        Queues: &(&1[:name] in @queue_functions),
+        Messages: &(&1[:name] in @message_functions),
+        "Permissions & tags": &(&1[:name] in @access_functions),
+        "Message move tasks (DLQ redrive)": &(&1[:name] in @move_task_functions),
+        Streaming: &(&1[:name] in @stream_functions)
+      ]
     ]
   end
 end

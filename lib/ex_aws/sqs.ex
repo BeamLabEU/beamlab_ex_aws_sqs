@@ -12,9 +12,9 @@ defmodule ExAws.SQS do
 
   Because requests are built with `ExAws.Operation.JSON`, a successful `ExAws.request/1` call
   returns `{:ok, response}` where `response` is the JSON response body decoded as-is by your
-  configured `:json_codec` (Elixir's built-in `JSON` module since 1.18, or Jason, etc.) — a map with the exact field names AWS documents,
-  e.g. `%{"MessageId" => "...", "MD5OfMessageBody" => "..."}` for `send_message/3`. There is no
-  extra normalization layer: whatever the
+  configured `:json_codec` (Elixir's built-in `JSON` module since 1.18, Jason, etc.): a map with
+  the exact field names AWS documents, e.g. `%{"MessageId" => "...", "MD5OfMessageBody" => "..."}`
+  for `send_message/3`. There is no extra normalization layer; whatever the
   [AWS API Reference](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Welcome.html)
   says a call returns is what you get back, keyed exactly as documented (a handful of AWS
   operations use unusual casing, e.g. `list_dead_letter_source_queues/1` returns `"queueUrls"`

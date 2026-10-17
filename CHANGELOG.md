@@ -15,6 +15,9 @@
   `ExAws.SQS.PaginationError` when a page fails, with the original `ExAws.request/2` error in
   `:reason`. The message text is unchanged, but code that rescued `RuntimeError` around these
   streams must rescue the new exception instead.
+- HexDocs: functions are grouped by area (queues, messages, permissions & tags, DLQ redrive,
+  streaming), the README is the landing page ("Overview") without the redundant API reference
+  page, and the canonical URL points at `hexdocs.pm/beamlab_ex_aws_sqs`.
 - Docs: `:max_results` notes for the list operations, and `:message_group_id` now covers fair
   queuing on standard queues.
 - The batch operations raise `ArgumentError` (instead of `FunctionClauseError`) when given
