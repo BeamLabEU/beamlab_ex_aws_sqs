@@ -185,8 +185,15 @@ ExAws.SQS.stream_queues(queue_name_prefix: "prod-") |> Enum.to_list()
 ExAws.SQS.stream_dead_letter_source_queues(dlq_url) |> Enum.take(50)
 ```
 
-Pages are fetched with `ExAws.request/2` and the stream raises a `RuntimeError` if a page
-request fails. An optional last argument is passed through as `ExAws.request/2` config
+The helpers default `:max_results` to 1000, which enables AWS continuation tokens; set it
+explicitly to use smaller pages. Pass `:next_token` to resume from a previous page.
+
+Pages are fetched with `ExAws.request/2` and the stream raises `ExAws.SQS.PaginationError`
+if a page request fails. Its `:reason` field contains the original error returned by
+`ExAws.request/2`. Code rescuing `RuntimeError` around these streams must rescue
+`ExAws.SQS.PaginationError` starting with v5.1.0.
+
+An optional last argument is passed through as `ExAws.request/2` config
 overrides (e.g. `region: "eu-west-1"`). `list_message_move_tasks/2` has no stream
 counterpart — AWS returns a bounded list of recent tasks there and supports no pagination.
 

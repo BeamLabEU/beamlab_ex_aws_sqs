@@ -69,7 +69,7 @@ defmodule ExAws.SQS do
   @type queue_attributes :: [
           {:policy, binary}
           | {:visibility_timeout, visibility_timeout}
-          | {:maximum_message_size, 1024..262_144}
+          | {:maximum_message_size, 1024..1_048_576}
           | {:message_retention_period, 60..1_209_600}
           | {:approximate_number_of_messages, binary}
           | {:approximate_number_of_messages_not_visible, binary}
@@ -148,8 +148,8 @@ defmodule ExAws.SQS do
   @doc """
   Extends the read lock timeout for a batch of 1..10 messages.
 
-  Raises `ArgumentError` if the batch is empty or larger than 10 entries
-  (AWS rejects both, so we fail before the request round-trip).
+  Raises `ArgumentError` if the batch is not a list, is empty, or is larger than 10 entries
+  so invalid batches fail before the request round-trip.
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ChangeMessageVisibilityBatch.html)
   """
@@ -177,7 +177,7 @@ defmodule ExAws.SQS do
 
     * `:delay_seconds` - The length of time, in seconds, for which the delivery of all messages in the queue is delayed. Valid values: An integer from 0 to 900 seconds (15 minutes). Default: 0.
 
-    * `:maximum_message_size` - The limit of how many bytes a message can contain before Amazon SQS rejects it. Valid values: An integer from 1,024 bytes (1 KiB) to 262,144 bytes (256 KiB). Default: 262,144 (256 KiB).
+    * `:maximum_message_size` - The limit of how many bytes a message can contain before Amazon SQS rejects it. Valid values: An integer from 1,024 bytes (1 KiB) to 1,048,576 bytes (1 MiB). Default: 1,048,576 bytes (1 MiB).
 
     * `:message_retention_period` - The length of time, in seconds, for which Amazon SQS retains a message. Valid values: An integer from 60 seconds (1 minute) to 1,209,600 seconds (14 days). Default: 345,600 (4 days).
 
@@ -243,7 +243,7 @@ defmodule ExAws.SQS do
   @doc """
   Deletes a list of messages from a SQS Queue in a single request
 
-  Accepts 1..10 entries; raises `ArgumentError` otherwise (AWS rejects both
+  Accepts a list of 1..10 entries; raises `ArgumentError` otherwise (AWS rejects both
   empty and oversized batches, so we fail before the request round-trip).
 
   [AWS API Docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessageBatch.html)
@@ -315,7 +315,7 @@ defmodule ExAws.SQS do
 
   ## Options
 
-    * `:max_results` - Maximum number of results to include in the response.
+    * `:max_results` - Maximum number of results to include in the response (1..1000). Set this option to receive a `NextToken` when more results exist.
     * `:next_token` - Pagination token from a previous call, used to retrieve the next page of results.
   """
   @spec list_dead_letter_source_queues(queue_url :: binary) :: JSON.t()
@@ -336,7 +336,7 @@ defmodule ExAws.SQS do
 
     * `:queue_name_prefix` - A string to use for filtering the list results. Only those queues whose name begins with the specified string are returned.
       Queue URLs and names are case-sensitive.
-    * `:max_results` - Maximum number of results to include in the response.
+    * `:max_results` - Maximum number of results to include in the response (1..1000). Set this option to receive a `NextToken` when more results exist.
     * `:next_token` - Pagination token from a previous call, used to retrieve the next page of results.
   """
   @spec list_queues() :: JSON.t()
@@ -452,7 +452,7 @@ defmodule ExAws.SQS do
 
     * `:message_deduplication_id` - This parameter applies only to FIFO (first-in-first-out) queues.
 
-    * `:message_group_id` - This parameter applies only to FIFO (first-in-first-out) queues.
+    * `:message_group_id` - Required for FIFO queues to group messages for ordered processing. On standard queues, identifies a tenant to enable fair queuing.
 
   ## Examples
 
@@ -519,8 +519,8 @@ defmodule ExAws.SQS do
   @doc """
   Send 1..10 messages to a SQS Queue in a single request.
 
-  Raises `ArgumentError` if the batch is empty or larger than 10 entries
-  (AWS rejects both, so we fail before the request round-trip).
+  Raises `ArgumentError` if the batch is not a list, is empty, or is larger than 10 entries
+  so invalid batches fail before the request round-trip.
 
   Each entry needs at least an `:id` (unique within the batch, used to match up the
   `"Successful"`/`"Failed"` results in the response) and a `:message_body`.
@@ -668,9 +668,12 @@ defmodule ExAws.SQS do
   Returns a lazy stream of queue URLs, transparently fetching additional pages with
   `list_queues/1` (`NextToken`) as the stream is consumed.
 
-  Takes the same options as `list_queues/1` (`:queue_name_prefix`, `:max_results`), plus an
-  optional list of `ExAws.request/2` config overrides (e.g. a different `:region`, or an
-  alternative `:http_client`).
+  Takes the same options as `list_queues/1` (`:queue_name_prefix`, `:max_results`, `:next_token`),
+  plus an optional list of `ExAws.request/2` config overrides (e.g. a different `:region`, or
+  an alternative `:http_client`).
+
+  Defaults `:max_results` to 1000 so AWS returns continuation tokens when more queues exist.
+  Set `:next_token` to resume from a previous page.
 
   Each page is fetched with `ExAws.request/2`; the stream raises `ExAws.SQS.PaginationError`
   (carrying the original error in `:reason`) if a page request fails.
@@ -679,7 +682,7 @@ defmodule ExAws.SQS do
       # => ["https://sqs.us-east-1.amazonaws.com/123/prod-a", ...]
   """
   @spec stream_queues(
-          opts :: [queue_name_prefix: binary, max_results: pos_integer],
+          opts :: [queue_name_prefix: binary, max_results: pos_integer, next_token: binary],
           request_opts :: keyword
         ) :: Enumerable.t(binary)
   def stream_queues(opts \\ [], request_opts \\ []) do
@@ -691,15 +694,15 @@ defmodule ExAws.SQS do
   fetching additional pages with `list_dead_letter_source_queues/2` (`NextToken`) as the
   stream is consumed.
 
-  Like `stream_queues/2`: takes `:max_results` plus optional `ExAws.request/2` config
-  overrides, and raises `ExAws.SQS.PaginationError` if a page request fails.
+  Like `stream_queues/2`: takes `:max_results` (default 1000) and `:next_token`, plus optional
+  `ExAws.request/2` config overrides, and raises `ExAws.SQS.PaginationError` if a page request fails.
 
   (`list_message_move_tasks/2` has no stream counterpart — the AWS operation returns a
   bounded list of recent tasks and supports no `NextToken` pagination.)
   """
   @spec stream_dead_letter_source_queues(
           queue_url :: binary,
-          opts :: [max_results: pos_integer],
+          opts :: [max_results: pos_integer, next_token: binary],
           request_opts :: keyword
         ) :: Enumerable.t(binary)
   def stream_dead_letter_source_queues(queue_url, opts \\ [], request_opts \\ []) do
@@ -711,6 +714,9 @@ defmodule ExAws.SQS do
   # (note the AWS quirk: ListQueues returns "QueueUrls" while ListDeadLetterSourceQueues
   # returns lowercase "queueUrls").
   defp paginate(fun, opts, request_opts, items_key) do
+    # SQS only returns NextToken when MaxResults is explicitly provided.
+    opts = Keyword.put_new(opts, :max_results, 1000)
+
     Stream.resource(
       fn -> :first_page end,
       fn

@@ -2,12 +2,21 @@
 
 ## 5.1.0 - 2026-10-16
 
+### Fixed
+
+- `stream_queues/2` and `stream_dead_letter_source_queues/3` now default `:max_results` to 1000.
+  SQS only returns a `NextToken` when `MaxResults` is supplied, so without it the streams
+  silently stopped after the first page. Both streams also accept `:next_token` to resume.
+- `:maximum_message_size` typespec and docs now reflect the 1 MiB (1,048,576 byte) limit.
+
 ### Changed
 
 - Stream helpers (`stream_queues/2`, `stream_dead_letter_source_queues/3`) now raise
   `ExAws.SQS.PaginationError` when a page fails, with the original `ExAws.request/2` error in
   `:reason`. The message text is unchanged, but code that rescued `RuntimeError` around these
   streams must rescue the new exception instead.
+- Docs: `:max_results` notes for the list operations, and `:message_group_id` now covers fair
+  queuing on standard queues.
 - The batch operations raise `ArgumentError` (instead of `FunctionClauseError`) when given
   something other than a list of entries.
 - Removed the `AWS=LOCAL` path-dependency switch from `mix.exs`; `ex_aws` is always the Hex

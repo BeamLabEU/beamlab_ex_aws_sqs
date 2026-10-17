@@ -479,15 +479,24 @@ defmodule ExAws.SQSTest do
       SQS.send_message_batch("q", [])
     end
 
-    assert_raise ArgumentError, ~r/expected a list/, fn ->
-      SQS.send_message_batch("q", %{id: "a", message_body: "b"})
-    end
-
     # Exactly 10 entries is fine.
     assert %{"Entries" => entries} =
              SQS.delete_message_batch("q", Enum.take(eleven, 10)).data
 
     assert length(entries) == 10
+  end
+
+  test "all batch operations reject non-list input with ArgumentError" do
+    for operation <- [
+          &SQS.send_message_batch/2,
+          &SQS.delete_message_batch/2,
+          &SQS.change_message_visibility_batch/2
+        ],
+        input <- [nil, :invalid, "invalid", %{id: "a", message_body: "b"}] do
+      assert_raise ArgumentError, ~r/expected a list of 1 to 10 batch entries/, fn ->
+        operation.("q", input)
+      end
+    end
   end
 
   test "#change_message_visibility" do
